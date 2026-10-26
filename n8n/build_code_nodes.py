@@ -18,7 +18,8 @@ COMMON = r"""
 function callerText(j) {
   const t = j.transcript || '';
   const user = t.split('\n').filter(l => /^\s*user\s*:/i.test(l)).map(l => l.replace(/^\s*user\s*:/i, '')).join(' ');
-  return [user || t, j.symptoms].filter(Boolean).join(' ');
+  // Prefer the caller's own words; fall back to the extracted symptoms, then the whole transcript.
+  return user || j.symptoms || t;
 }
 """
 
