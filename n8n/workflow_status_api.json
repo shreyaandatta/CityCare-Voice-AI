@@ -1,0 +1,162 @@
+{
+  "name": "CityCare Hospital - Status & Dashboard API",
+  "nodes": [
+    {
+      "id": "70c2dd5d-f76f-40c6-9800-375043745e4f",
+      "name": "Status Check",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "c34d5307-4534-4346-8fca-8939ff1ca58d",
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "citycare-status",
+        "responseMode": "lastNode",
+        "options": {}
+      }
+    },
+    {
+      "id": "ea58583a-95ce-45a3-977c-483b14346fad",
+      "name": "Load Calls (status)",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [
+        240,
+        0
+      ],
+      "alwaysOutputData": true,
+      "parameters": {
+        "resource": "row",
+        "operation": "get",
+        "returnAll": true,
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "Eeksa088B3rNsZSx"
+        }
+      }
+    },
+    {
+      "id": "a999f0b0-743c-4a30-a414-4bbb04230d3e",
+      "name": "Find Latest Booking",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        0
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// n8n Code node (\"Run Once for All Items\") behind the /citycare-status webhook.\n// Retell's custom function sends {args: {phone}}; also accepts ?phone= for testing.\n// Returns only appointment details \u2013 never symptoms or transcripts.\nconst req = $('Status Check').first().json;\nconst raw = req.body?.args?.phone || req.body?.phone || req.query?.phone || '';\nconst phone = String(raw).replace(/\\D/g, '').slice(-10);\nconst rows = $input.all().map(i => i.json).filter(r => r.patient_phone);\nconst match = rows\n  .filter(r => phone.length >= 6 && String(r.patient_phone).replace(/\\D/g, '').slice(-10) === phone)\n  .sort((a, b) => (b.id || 0) - (a.id || 0))[0];\n\nif (!match) {\n  return [{ json: { found: false, message: 'I could not find any appointment for that number. Would you like to book one?' } }];\n}\nconst message = match.booking_status === 'ER alerted'\n  ? `This was handled as an emergency for ${match.patient_name}. Please contact the Emergency department directly.`\n  : match.doctor\n    ? `${match.patient_name}'s appointment is with ${match.doctor} (${match.department}) on ${match.appointment_slot}. Status: ${match.booking_status}.`\n    : `I found a request for ${match.patient_name}. Status: ${match.booking_status}.`;\nreturn [{ json: { found: true, message } }];\n"
+      }
+    },
+    {
+      "id": "e8861854-a356-472d-95e5-eb619dafb327",
+      "name": "Dashboard Feed",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        300
+      ],
+      "webhookId": "542ff941-5195-431f-a424-4bf8d020c3e2",
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "citycare-calls",
+        "responseMode": "lastNode",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      }
+    },
+    {
+      "id": "4389fec1-a323-4a03-8e52-32db1c0126b3",
+      "name": "Load Calls (dashboard)",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [
+        240,
+        300
+      ],
+      "alwaysOutputData": true,
+      "parameters": {
+        "resource": "row",
+        "operation": "get",
+        "returnAll": true,
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "Eeksa088B3rNsZSx"
+        }
+      }
+    },
+    {
+      "id": "fefd28e7-732c-44ef-a5de-b28f54c39323",
+      "name": "Sort by Triage",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        300
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// n8n Code node (\"Run Once for All Items\") behind the /citycare-calls webhook used by the staff dashboard.\n// The caller must send header x-dashboard-key matching DASHBOARD_KEY (set in the live workflow, not in git).\nconst DASHBOARD_KEY = '__SET_IN_N8N__';\nconst headers = $('Dashboard Feed').first().json.headers || {};\nif (headers['x-dashboard-key'] !== DASHBOARD_KEY) {\n  return [{ json: { error: 'unauthorized' } }];\n}\nconst calls = $input.all().map(i => i.json).filter(r => r.call_id)\n  .sort((a, b) => (b.triage_score || 0) - (a.triage_score || 0) || (b.id || 0) - (a.id || 0))\n  .map(({ transcript, ...rest }) => rest);\nreturn [{ json: { generated_at: new Date().toISOString(), count: calls.length, calls } }];\n"
+      }
+    }
+  ],
+  "connections": {
+    "Status Check": {
+      "main": [
+        [
+          {
+            "node": "Load Calls (status)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Load Calls (status)": {
+      "main": [
+        [
+          {
+            "node": "Find Latest Booking",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Dashboard Feed": {
+      "main": [
+        [
+          {
+            "node": "Load Calls (dashboard)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Load Calls (dashboard)": {
+      "main": [
+        [
+          {
+            "node": "Sort by Triage",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CityCare Call Triage</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --card: #ffffff; --text: #1c2330; --muted: #677285; --line: #e3e6eb;
+    --emergency: #c62828; --emergency-bg: #fdecec; --urgent: #b26a00; --urgent-bg: #fff4e0;
+    --routine: #2e7d32; --routine-bg: #e9f5ea; --accent: #1f5fbf;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #12151b; --card: #1b2029; --text: #e8ebf0; --muted: #98a2b3; --line: #2b323e;
+      --emergency: #ff8a80; --emergency-bg: #3a1c1c; --urgent: #ffc266; --urgent-bg: #3a2c14;
+      --routine: #8fd694; --routine-bg: #1d3220; --accent: #7fb0ff; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; background: var(--bg); color: var(--text); }
+  header { padding: 20px 24px 8px; display: flex; flex-wrap: wrap; gap: 12px; align-items: baseline; justify-content: space-between; }
+  h1 { margin: 0; font-size: 22px; }
+  .sub { color: var(--muted); font-size: 13px; }
+  main { padding: 0 24px 32px; max-width: 1200px; margin: 0 auto; }
+  .settings { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 18px; }
+  .settings input { flex: 1 1 260px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--card); color: var(--text); font: inherit; }
+  button { padding: 8px 14px; border: 0; border-radius: 8px; background: var(--accent); color: #fff; font: inherit; cursor: pointer; }
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 18px; }
+  .stat { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; }
+  .stat b { display: block; font-size: 28px; line-height: 1.1; }
+  .stat span { color: var(--muted); font-size: 13px; }
+  .stat.Emergency b { color: var(--emergency); } .stat.Urgent b { color: var(--urgent); } .stat.Routine b { color: var(--routine); }
+  .table-wrap { background: var(--card); border: 1px solid var(--line); border-radius: 12px; overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; min-width: 820px; }
+  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); font-weight: 600; }
+  tr:last-child td { border-bottom: 0; }
+  .badge { display: inline-block; padding: 2px 10px; border-radius: 99px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+  .badge.Emergency { color: var(--emergency); background: var(--emergency-bg); }
+  .badge.Urgent { color: var(--urgent); background: var(--urgent-bg); }
+  .badge.Routine { color: var(--routine); background: var(--routine-bg); }
+  .score { font-variant-numeric: tabular-nums; color: var(--muted); font-size: 12px; }
+  .bars { display: flex; gap: 3px; margin-top: 4px; }
+  .bars i { display: block; height: 4px; width: 26px; border-radius: 2px; background: var(--line); position: relative; overflow: hidden; }
+  .bars i::after { content: ""; position: absolute; inset: 0; width: var(--v); background: var(--accent); }
+  .muted { color: var(--muted); }
+  #msg { margin: 8px 0; color: var(--muted); }
+  @media (max-width: 600px) { header, main { padding-left: 16px; padding-right: 16px; } }
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>CityCare Hospital · Call Triage</h1>
+    <div class="sub">Calls handled by the voice AI, most urgent first. Fuzzy triage + Naive Bayes department routing.</div>
+  </div>
+  <div class="sub" id="updated"></div>
+</header>
+<main>
+  <form class="settings" id="settings">
+    <input id="url" placeholder="n8n dashboard feed URL" aria-label="Feed URL">
+    <input id="key" type="password" placeholder="Dashboard key" aria-label="Dashboard key">
+    <button type="submit">Load</button>
+  </form>
+  <div class="stats" id="stats"></div>
+  <div id="msg">Enter the dashboard key to load calls.</div>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Triage</th><th>Patient</th><th>Symptoms</th><th>Severity · Distress · Vulnerability</th><th>Department</th><th>Doctor &amp; slot</th><th>Status</th></tr></thead>
+    <tbody id="rows"></tbody>
+  </table></div>
+</main>
+<script>
+const DEFAULT_URL = 'https://retellaiyes.app.n8n.cloud/webhook/citycare-calls';
+const store = {
+  get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch {} },
+};
+const $ = id => document.getElementById(id);
+$('url').value = store.get('citycare_url') || DEFAULT_URL;
+$('key').value = store.get('citycare_key') || '';
+
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const bar = v => `<i style="--v:${Math.max(0, Math.min(10, +v || 0)) * 10}%"></i>`;
+
+function render(data) {
+  const calls = data.calls || [];
+  const count = l => calls.filter(c => c.triage_label === l).length;
+  $('stats').innerHTML = [['Total calls', calls.length, ''], ['Emergency', count('Emergency'), 'Emergency'],
+    ['Urgent', count('Urgent'), 'Urgent'], ['Routine', count('Routine'), 'Routine']]
+    .map(([t, n, cls]) => `<div class="stat ${cls}"><b>${n}</b><span>${t}</span></div>`).join('');
+  $('rows').innerHTML = calls.map(c => `<tr>
+      <td><span class="badge ${esc(c.triage_label)}">${esc(c.triage_label)}</span><div class="score">score ${esc(c.triage_score)}</div></td>
+      <td><b>${esc(c.patient_name) || '<span class="muted">Unknown</span>'}</b><div class="muted">${esc(c.patient_phone)}${c.age ? ' · ' + esc(c.age) + ' yrs' : ''}</div></td>
+      <td>${esc(c.symptoms) || '<span class="muted">—</span>'}</td>
+      <td><div class="score">${esc(c.severity)} · ${esc(c.distress)} · ${esc(c.vulnerability)}</div><div class="bars">${bar(c.severity)}${bar(c.distress)}${bar(c.vulnerability)}</div></td>
+      <td>${esc(c.department)}<div class="score">${esc(c.route_source)}${c.route_source === 'naive bayes' ? ' · ' + Math.round(c.route_confidence * 100) + '%' : ''}</div></td>
+      <td>${esc(c.doctor) || '<span class="muted">—</span>'}<div class="muted">${esc(c.appointment_slot)}</div></td>
+      <td>${esc(c.booking_status)}</td></tr>`).join('');
+  $('msg').textContent = calls.length ? '' : 'No calls yet.';
+  $('updated').textContent = 'Updated ' + new Date().toLocaleTimeString();
+}
+
+async function load() {
+  const url = $('url').value.trim(), key = $('key').value.trim();
+  if (!key) return;
+  store.set('citycare_url', url); store.set('citycare_key', key);
+  try {
+    const res = await fetch(url, { headers: { 'x-dashboard-key': key } });
+    const data = await res.json();
+    if (data.error) { $('msg').textContent = 'The feed refused the key. Check it and try again.'; return; }
+    render(data);
+  } catch (e) {
+    $('msg').textContent = 'Could not reach the feed: ' + e.message;
+  }
+}
+$('settings').addEventListener('submit', e => { e.preventDefault(); load(); });
+load();
+setInterval(load, 30000);
+</script>
+</body>
+</html>
