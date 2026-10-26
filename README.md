@@ -143,6 +143,7 @@ python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 - The symptom lexicon and fuzzy rules are hand-tuned, not clinically validated.
 - The router's training data is synthetic, so its accuracy on real calls would be lower than 90%.
 - The webhook URLs are public; a production version would need signature checks on the Retell webhook.
+- In text tests, the agent sometimes ends emergency calls right after giving the 108 / ER advice instead of first collecting the patient's details, even though the prompt tells it not to. The safety advice is always given first.
 
 ## Future work
 
