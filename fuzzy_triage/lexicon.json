@@ -1,0 +1,30 @@
+{
+  "severity": {
+    "chest pain": 6, "heart attack": 8, "breathless": 5, "can't breathe": 7, "cannot breathe": 7,
+    "difficulty breathing": 6, "shortness of breath": 5, "unconscious": 8, "fainted": 6, "collapsed": 7,
+    "seizure": 7, "fits": 6, "stroke": 8, "face drooping": 7, "slurred speech": 6, "paralysis": 7,
+    "heavy bleeding": 7, "bleeding": 4, "accident": 5, "fracture": 4, "broken": 3, "burn": 4,
+    "poisoning": 7, "overdose": 7, "high fever": 4, "fever": 4, "vomiting": 2, "vomiting blood": 7,
+    "severe": 3, "unbearable": 4, "pain": 2, "swelling": 1, "dizzy": 2, "headache": 1, "cough": 1,
+    "cold": 1, "rash": 1, "itching": 1, "sore throat": 1,
+    "seene mein dard": 6, "saans": 4, "behosh": 8, "bukhar": 2, "dard": 2, "khoon": 4,
+    "checkup": -1, "check-up": -1, "follow up": -1, "follow-up": -1, "routine": -1, "report": -1, "vaccination": -1
+  },
+  "distress": {
+    "please": 1, "urgent": 3, "emergency": 4, "help": 2, "hurry": 3, "scared": 2, "worried": 2,
+    "asap": 3, "immediately": 3, "right now": 3, "really bad": 2, "terrible": 2, "dying": 4,
+    "panic": 3, "jaldi": 3, "madad": 2
+  },
+  "vulnerability": {
+    "pregnant": 7, "pregnancy": 7, "newborn": 5, "infant": 5, "baby": 4, "child": 3, "kid": 3,
+    "elderly": 4, "old": 2, "grandfather": 3, "grandmother": 3, "diabetic": 3, "diabetes": 3,
+    "heart patient": 4, "bp patient": 3, "blood pressure": 2, "asthma": 3, "kidney": 3, "cancer": 4,
+    "dialysis": 4, "transplant": 4
+  },
+  "when": {
+    "today": 0, "right now": 0, "tonight": 0, "now": 0, "aaj": 0, "tomorrow": 1, "kal": 1,
+    "day after tomorrow": 2, "this week": 4, "next week": 9, "next month": 30,
+    "whenever": 20, "any time": 20, "anytime": 20
+  },
+  "default_delay_days": 7
+}
